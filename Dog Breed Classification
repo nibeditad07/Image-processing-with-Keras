@@ -1,0 +1,122 @@
+import os
+import cv2 # image handling
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+from tqdm import tqdm
+
+import seaborn as sns
+import matplotlib.pyplot as plt 
+
+import sklearn
+from sklearn.model_selection import train_test_split
+import cv2
+
+labels = pd.read_csv("/content/Doggy/labels.csv")
+labels.head()
+
+lab = list(set(labels['id'].values.tolist()))
+x_feature = []
+i=0
+for item in lab:
+     im1 = cv2.imread('/content/Doggy/train/{}.jpg'.format(item), 0)
+     im1_resize = cv2.resize(im1,(128,128))
+     x_feature.append(im1_resize)
+     i+=1
+x_train_data = np.array(x_feature,np.float32)/255
+x_train_data = np.expand_dims(x_train_data, axis = 3)
+
+#one hot encoding of the labels
+target = pd.Series(labels['breed'])
+one_hot = pd.get_dummies(target)
+one_hot_labels = np.asarray(one_hot)
+one_hot_labels
+
+from keras.models import Sequential  # initial NN
+from keras.layers import Dense, Dropout # construct each layer
+from keras.layers import Conv2D # swipe across the image by 1
+from keras.layers import MaxPooling2D # swipe across by pool size
+from keras.layers import Flatten
+
+model = Sequential()
+model.add(Conv2D(64,kernel_size=(4,4),activation='relu',padding='same',input_shape=(128,128,1)))
+model.add(MaxPooling2D(pool_size=(2,2)))
+model.add(Conv2D(64,kernel_size=(4,4),activation='relu',padding='same'))
+model.add(MaxPooling2D(pool_size=(2,2)))
+model.add(Flatten())
+#fully connected ANN
+model.add(Dense(units=120,activation='relu'))
+#output layer
+model.add(Dense(units=120,activation='softmax'))
+model.compile(loss='categorical_crossentropy',optimizer='adam',metrics=['accuracy'])
+model.summary()
+
+from keras.callbacks import ModelCheckpoint
+checkpoint = ModelCheckpoint('/content/Doggy/weights.hdf5',monitor='val_loss',save_best_only=True)
+callbacks_list = [checkpoint]
+training =  model.fit(x_train,y_train,batch_size=128,epochs=3,validation_data=(x_val,y_val),callbacks=callbacks_list)
+
+sub = pd.read_csv('/content/Doggy/sample_submission.csv')
+sub.head()
+test_img = sub['id'].values.tolist()
+x_test_feature = []
+i=0
+for item in test_img:
+     im1 = cv2.imread('/content/Doggy/test/{}.jpg'.format(item), 0)
+     im1_resize = cv2.resize(im1,(128,128))
+     x_test_feature.append(im1_resize)
+     i+=1
+x_test_feature = []
+i=0
+for item in test_img:
+     im1 = cv2.imread('/content/Doggy/test/{}.jpg'.format(item), 0)
+     im1_resize = cv2.resize(im1,(128,128))
+     x_test_feature.append(im1_resize)
+     i+=1
+
+x_test_data = np.array(x_test_feature,np.float32)/255
+x_test_data = np.expand_dims(x_test_data, axis = 3)
+print (x_test_data.shape)
+
+model.load_weights('/content/Doggy/weights.hdf5')
+res = model.predict(x_test_data)
+
+res = pd.DataFrame(res)
+res.columns = one_hot.columns.values
+res.head()
+
+res['id']=sub['id']
+res.head()
+
+#saving the submissions file
+res.to_csv('/content/Doggy/submission.csv')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
